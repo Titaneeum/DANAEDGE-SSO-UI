@@ -18,11 +18,7 @@ import Button from '@mui/material/Button'
 import FormControlLabel from '@mui/material/FormControlLabel'
 
 // Third-party Imports
-import { Controller, useForm } from 'react-hook-form'
-import { valibotResolver } from '@hookform/resolvers/valibot'
-import { email, object, minLength, string, pipe, nonEmpty } from 'valibot'
-import type { SubmitHandler } from 'react-hook-form'
-import type { InferInput } from 'valibot'
+import { useForm } from '@mantine/form'
 import classnames from 'classnames'
 
 // Type Imports
@@ -42,6 +38,7 @@ import { useSettings } from '@core/hooks/useSettings'
 
 // Util Imports
 import { getLocalizedUrl } from '@/utils/i18n'
+import { useData } from '../../useData'
 
 // Styled Custom Components
 const LoginIllustration = styled('img')(({ theme }) => ({
@@ -71,22 +68,17 @@ type ErrorType = {
   message: string[]
 }
 
-type FormData = InferInput<typeof schema>
-
-const schema = object({
-  email: pipe(string(), minLength(1, 'This field is required'), email('Email is invalid')),
-  password: pipe(
-    string(),
-    nonEmpty('This field is required'),
-    minLength(5, 'Password must be at least 5 characters long')
-  )
-})
+type FormData = {
+  username: string
+  password: string
+}
 
 const Login = ({ mode }: { mode: SystemMode }) => {
   // States
   const [isPasswordShown, setIsPasswordShown] = useState(false)
   const [errorState, setErrorState] = useState<ErrorType | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const { mutate: Login, isPending } = useData().set.auth.login
 
   // Vars
   const darkImg = '/images/pages/auth-mask-dark.png'
@@ -105,15 +97,19 @@ const Login = ({ mode }: { mode: SystemMode }) => {
   const hidden = useMediaQuery(theme.breakpoints.down('md'))
   const authBackground = useImageVariant(mode, lightImg, darkImg)
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors }
-  } = useForm<FormData>({
-    resolver: valibotResolver(schema),
-    defaultValues: {
-      email: '',
+  const form = useForm<FormData>({
+    initialValues: {
+      username: '',
       password: ''
+    },
+    validate: {
+      username: value => (!value.trim() ? 'This field is required' : null),
+      password: value => {
+        if (!value) return 'This field is required'
+        if (value.length < 5) return 'Password must be at least 5 characters long'
+
+        return null
+      }
     }
   })
 
@@ -127,37 +123,40 @@ const Login = ({ mode }: { mode: SystemMode }) => {
 
   const handleClickShowPassword = () => setIsPasswordShown(show => !show)
 
-  const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
-    setIsSubmitting(true)
+  const handleSubmit = ({ username, password }: FormData) => {
     setErrorState(null)
 
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      const result = (await response.json()) as { message?: string[] }
+    Login(
+      { username, password },
+      {
+        onSuccess: data => {
+          const loginToken = data?.data?.login_details?.data?.token
 
-      if (!response.ok) {
-        setErrorState({ message: result.message ?? ['Unable to sign in.'] })
+          if (typeof loginToken !== 'string' || !loginToken) {
+            setErrorState({ message: ['The authentication service did not return a login token.'] })
 
-        return
+            return
+          }
+
+          localStorage.setItem('login_token', loginToken)
+
+          const requestedRedirect = searchParams.get('redirectTo')
+
+          const redirectURL =
+            requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+              ? requestedRedirect
+              : getLocalizedUrl('/dashboard', locale as Locale)
+
+          router.replace(redirectURL)
+          router.refresh()
+        },
+        onError: error => {
+          const message = (error as { response?: { data?: { message?: string[] } } }).response?.data?.message
+
+          setErrorState({ message: message ?? ['Unable to sign in.'] })
+        }
       }
-
-      const requestedRedirect = searchParams.get('redirectTo')
-      const redirectURL =
-        requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
-          ? requestedRedirect
-          : getLocalizedUrl('/dashboard', locale as Locale)
-
-      router.replace(redirectURL)
-      router.refresh()
-    } catch {
-      setErrorState({ message: ['Unable to reach the authentication service.'] })
-    } finally {
-      setIsSubmitting(false)
-    }
+    )
   }
 
   return (
@@ -186,69 +185,50 @@ const Login = ({ mode }: { mode: SystemMode }) => {
             noValidate
             autoComplete='off'
             action={() => {}}
-            onSubmit={handleSubmit(onSubmit)}
+            onSubmit={form.onSubmit(handleSubmit)}
             className='flex flex-col gap-6'
           >
-            <Controller
-              name='email'
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <CustomTextField
-                  {...field}
-                  autoFocus
-                  fullWidth
-                  type='email'
-                  label='Email'
-                  placeholder='Enter your email'
-                  onChange={e => {
-                    field.onChange(e.target.value)
-                    errorState !== null && setErrorState(null)
-                  }}
-                  {...((errors.email || errorState !== null) && {
-                    error: true,
-                    helperText: errors?.email?.message || errorState?.message?.[0]
-                  })}
-                />
-              )}
+            <CustomTextField
+              {...form.getInputProps('username')}
+              autoFocus
+              fullWidth
+              label='Username'
+              placeholder='Enter your username'
+              onChange={event => {
+                form.setFieldValue('username', event.target.value)
+                if (errorState) setErrorState(null)
+              }}
+              error={Boolean(form.errors.username || errorState)}
+              helperText={form.errors.username || errorState?.message?.[0]}
             />
-            <Controller
-              name='password'
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <CustomTextField
-                  {...field}
-                  fullWidth
-                  label='Password'
-                  placeholder='············'
-                  id='login-password'
-                  type={isPasswordShown ? 'text' : 'password'}
-                  onChange={e => {
-                    field.onChange(e.target.value)
-                    errorState !== null && setErrorState(null)
-                  }}
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position='end'>
-                          <IconButton
-                            edge='end'
-                            onClick={handleClickShowPassword}
-                            onMouseDown={e => e.preventDefault()}
-                          >
-                            <i className={isPasswordShown ? 'tabler-eye' : 'tabler-eye-off'} />
-                          </IconButton>
-                        </InputAdornment>
-                      )
-                    }
-                  }}
-                  {...((errors.password || errorState) && {
-                    error: true,
-                    helperText: errors.password?.message || errorState?.message?.[0]
-                  })}
-                />
-              )}
+            <CustomTextField
+              {...form.getInputProps('password')}
+              fullWidth
+              label='Password'
+              placeholder='••••••••••••'
+              id='login-password'
+              type={isPasswordShown ? 'text' : 'password'}
+              onChange={event => {
+                form.setFieldValue('password', event.target.value)
+                if (errorState) setErrorState(null)
+              }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position='end'>
+                      <IconButton
+                        edge='end'
+                        onClick={handleClickShowPassword}
+                        onMouseDown={event => event.preventDefault()}
+                      >
+                        <i className={isPasswordShown ? 'tabler-eye' : 'tabler-eye-off'} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
+              }}
+              error={Boolean(form.errors.password || errorState)}
+              helperText={form.errors.password || errorState?.message?.[0]}
             />
             <div className='flex justify-between items-center gap-x-3 gap-y-1 flex-wrap'>
               <FormControlLabel control={<Checkbox defaultChecked />} label='Remember me' />
@@ -261,8 +241,8 @@ const Login = ({ mode }: { mode: SystemMode }) => {
                 Forgot password?
               </Typography>
             </div>
-            <Button fullWidth variant='contained' type='submit' disabled={isSubmitting}>
-              {isSubmitting ? 'Signing in…' : 'Login'}
+            <Button fullWidth variant='contained' type='submit' disabled={isPending}>
+              {isPending ? 'Signing in…' : 'Login'}
             </Button>
             <div className='flex justify-center items-center flex-wrap gap-2'>
               <Typography>New on our platform?</Typography>

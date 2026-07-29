@@ -10,6 +10,8 @@ const asObject = (value: unknown): JsonObject | null =>
 const findToken = (payload: unknown) => {
   const root = asObject(payload)
   const data = asObject(root?.data)
+  const loginDetails = asObject(data?.login_details)
+  const loginDetailsData = asObject(loginDetails?.data)
 
   for (const value of [
     root?.accessToken,
@@ -17,7 +19,8 @@ const findToken = (payload: unknown) => {
     root?.token,
     data?.accessToken,
     data?.access_token,
-    data?.token
+    data?.token,
+    loginDetailsData?.token
   ]) {
     if (typeof value === 'string' && value.length > 0) return value
   }
@@ -34,7 +37,7 @@ const messageFrom = (payload: unknown, fallback: string) => {
 }
 
 export async function POST(request: Request) {
-  const apiUrl = process.env.API_URL?.replace(/\/+$/, '')
+  const apiUrl = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL)?.replace(/\/+$/, '')
 
   if (!apiUrl) {
     return NextResponse.json({ message: ['Authentication service is not configured.'] }, { status: 503 })
@@ -49,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const upstream = await fetch(`${apiUrl}/login`, {
+    const upstream = await fetch(`${apiUrl}/api/v1/env/mobile/superadmin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(credentials),
@@ -80,7 +83,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const response = NextResponse.json({ ok: true })
+    const response = NextResponse.json(payload)
 
     response.cookies.set(SESSION_COOKIE_NAME, token, {
       httpOnly: true,
@@ -95,4 +98,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: ['Authentication service is unavailable.'] }, { status: 502 })
   }
 }
-

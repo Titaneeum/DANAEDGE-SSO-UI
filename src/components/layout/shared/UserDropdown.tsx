@@ -72,13 +72,12 @@ const UserDropdown = () => {
   const handleUserLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      router.replace(getLocalizedUrl('/login', locale as Locale))
-      router.refresh()
     } catch (error) {
       console.error(error)
-
-      // Show above error in a toast like following
-      // toastService.error((err as Error).message)
+    } finally {
+      localStorage.removeItem('login_token')
+      router.replace(getLocalizedUrl('/login', locale as Locale))
+      router.refresh()
     }
   }
 
