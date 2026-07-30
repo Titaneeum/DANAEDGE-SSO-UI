@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 
-import { Login } from './services'
+import { CreateAdminUser, ListAdminUsers, ListUserLoginAttempt, Login } from './services'
 
 export const useData = () => {
   return {
@@ -10,6 +10,20 @@ export const useData = () => {
         login: useMutation({
           mutationKey: ['login'],
           mutationFn: Login
+        })
+      },
+      adminUser: {
+        userLoginAttemptList: useMutation({
+          mutationKey: ['userLoginAttemptList'],
+          mutationFn: ListUserLoginAttempt
+        }),
+        adminUserList: useMutation({
+          mutationKey: ['adminUserList'],
+          mutationFn: ListAdminUsers
+        }),
+        createAdminUser: useMutation({
+          mutationKey: ['createAdminUser'],
+          mutationFn: CreateAdminUser
         })
       }
     }

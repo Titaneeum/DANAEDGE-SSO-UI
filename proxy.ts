@@ -16,8 +16,20 @@ export function proxy(request: NextRequest) {
     const loginUrl = new URL(`/${locale}/login`, request.url)
 
     loginUrl.searchParams.set('redirectTo', `${pathname}${search}`)
+    loginUrl.searchParams.set('sessionExpired', '1')
 
-    return NextResponse.redirect(loginUrl)
+    const response = NextResponse.redirect(loginUrl)
+    const cookieDomain = request.nextUrl.hostname.endsWith('.danaedge.com') ? '.danaedge.com' : undefined
+
+    response.cookies.set(SESSION_COOKIE_NAME, '', {
+      path: '/',
+      domain: cookieDomain,
+      secure: Boolean(cookieDomain),
+      sameSite: 'lax',
+      maxAge: 0
+    })
+
+    return response
   }
 
   if (guestRoute.test(pathname) && hasSession) {
@@ -30,4 +42,3 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
 }
-

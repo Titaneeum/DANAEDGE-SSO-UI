@@ -29,9 +29,9 @@ import '@/app/globals.css'
 import '@assets/iconify-icons/generated-icons.css'
 
 export const metadata = {
-  title: 'Vuexy - MUI Next.js Admin Dashboard Template',
+  title: 'DanaEdge SSO',
   description:
-    'Vuexy - MUI Next.js Admin Dashboard Template - is the most developer friendly & highly customizable Admin Dashboard Template based on MUI v5.'
+    'DanaEdge SSO is a Single Sign-On (SSO) solution that provides secure and seamless access to multiple applications and services with a single set of credentials. It simplifies the authentication process for users while enhancing security for organizations.'
 }
 
 const RootLayout = async (props: ChildrenType & { params: Promise<{ lang: string }> }) => {

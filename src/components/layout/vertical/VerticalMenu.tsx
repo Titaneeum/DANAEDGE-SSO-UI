@@ -11,7 +11,7 @@ import PerfectScrollbar from 'react-perfect-scrollbar'
 import type { getDictionary } from '@/utils/getDictionary'
 
 // Component Imports
-import { Menu, MenuItem } from '@menu/vertical-menu'
+import { Menu, MenuItem, SubMenu } from '@menu/vertical-menu'
 
 // Hook Imports
 import useVerticalNav from '@menu/hooks/useVerticalNav'
@@ -52,6 +52,14 @@ const VerticalMenu = ({ scrollMenu }: Props) => {
         <MenuItem href={`/${locale}/dashboard`} icon={<i className='tabler-layout-dashboard' />}>
           Dashboard
         </MenuItem>
+        <SubMenu label='Admin User' icon={<i className='tabler-users' />}>
+          <MenuItem href={`/${locale}/user-login-attempt`} icon={<i className='tabler-user' />}>
+            User Login Attempt
+          </MenuItem>
+          <MenuItem href={`/${locale}/admin-user-list`} icon={<i className='tabler-list' />}>
+            Admin User List
+          </MenuItem>
+        </SubMenu>
       </Menu>
     </ScrollWrapper>
   )

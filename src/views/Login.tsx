@@ -1,68 +1,32 @@
 'use client'
 
-// React Imports
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
-// Next Imports
-import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 
-// MUI Imports
-import useMediaQuery from '@mui/material/useMediaQuery'
-import { styled, useTheme } from '@mui/material/styles'
-import Typography from '@mui/material/Typography'
+import Image from 'next/image'
+
+import Button from '@mui/material/Button'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
-import Checkbox from '@mui/material/Checkbox'
-import Button from '@mui/material/Button'
-import FormControlLabel from '@mui/material/FormControlLabel'
+import Typography from '@mui/material/Typography'
 
-// Third-party Imports
 import { useForm } from '@mantine/form'
-import classnames from 'classnames'
 
-// Type Imports
+import companyLogo from '../../public/images/logos/danaedgelogo.png'
+
 import type { SystemMode } from '@core/types'
 import type { Locale } from '@/configs/i18n'
 
-// Component Imports
-import Logo from '@components/layout/shared/Logo'
 import CustomTextField from '@core/components/mui/TextField'
 
-// Config Imports
 import themeConfig from '@configs/themeConfig'
 
-// Hook Imports
-import { useImageVariant } from '@core/hooks/useImageVariant'
-import { useSettings } from '@core/hooks/useSettings'
-
-// Util Imports
 import { getLocalizedUrl } from '@/utils/i18n'
 import { useData } from '../../useData'
-
-// Styled Custom Components
-const LoginIllustration = styled('img')(({ theme }) => ({
-  zIndex: 2,
-  blockSize: 'auto',
-  maxBlockSize: 680,
-  maxInlineSize: '100%',
-  margin: theme.spacing(12),
-  [theme.breakpoints.down(1536)]: {
-    maxBlockSize: 550
-  },
-  [theme.breakpoints.down('lg')]: {
-    maxBlockSize: 450
-  }
-}))
-
-const MaskImg = styled('img')({
-  blockSize: 'auto',
-  maxBlockSize: 355,
-  inlineSize: '100%',
-  position: 'absolute',
-  insetBlockEnd: 0,
-  zIndex: -1
-})
 
 type ErrorType = {
   message: string[]
@@ -73,29 +37,25 @@ type FormData = {
   password: string
 }
 
-const Login = ({ mode }: { mode: SystemMode }) => {
-  // States
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const Login = ({ mode: _mode }: { mode: SystemMode }) => {
   const [isPasswordShown, setIsPasswordShown] = useState(false)
   const [errorState, setErrorState] = useState<ErrorType | null>(null)
 
   const { mutate: Login, isPending } = useData().set.auth.login
 
-  // Vars
-  const darkImg = '/images/pages/auth-mask-dark.png'
-  const lightImg = '/images/pages/auth-mask-light.png'
-  const darkIllustration = '/images/illustrations/auth/v2-login-dark.png'
-  const lightIllustration = '/images/illustrations/auth/v2-login-light.png'
-  const borderedDarkIllustration = '/images/illustrations/auth/v2-login-dark-border.png'
-  const borderedLightIllustration = '/images/illustrations/auth/v2-login-light-border.png'
-
-  // Hooks
   const router = useRouter()
   const searchParams = useSearchParams()
   const { lang: locale } = useParams()
-  const { settings } = useSettings()
-  const theme = useTheme()
-  const hidden = useMediaQuery(theme.breakpoints.down('md'))
-  const authBackground = useImageVariant(mode, lightImg, darkImg)
+  const isLocal = process.env.NEXT_PUBLIC_ENV === 'local'
+
+  useEffect(() => {
+    if (searchParams.get('sessionExpired') !== '1') return
+
+    localStorage.removeItem('login_token')
+    document.cookie =
+      'login_token=; Path=/; SameSite=Lax; Max-Age=0' + (isLocal ? '' : '; Domain=.danaedge.com; Secure')
+  }, [isLocal, searchParams])
 
   const form = useForm<FormData>({
     initialValues: {
@@ -113,16 +73,6 @@ const Login = ({ mode }: { mode: SystemMode }) => {
     }
   })
 
-  const characterIllustration = useImageVariant(
-    mode,
-    lightIllustration,
-    darkIllustration,
-    borderedLightIllustration,
-    borderedDarkIllustration
-  )
-
-  const handleClickShowPassword = () => setIsPasswordShown(show => !show)
-
   const handleSubmit = ({ username, password }: FormData) => {
     setErrorState(null)
 
@@ -130,7 +80,7 @@ const Login = ({ mode }: { mode: SystemMode }) => {
       { username, password },
       {
         onSuccess: data => {
-          const loginToken = data?.data?.login_details?.data?.token
+          const loginToken = data?.data?.token
 
           if (typeof loginToken !== 'string' || !loginToken) {
             setErrorState({ message: ['The authentication service did not return a login token.'] })
@@ -139,6 +89,9 @@ const Login = ({ mode }: { mode: SystemMode }) => {
           }
 
           localStorage.setItem('login_token', loginToken)
+          document.cookie =
+            `login_token=${encodeURIComponent(loginToken)}; Path=/; SameSite=Lax` +
+            (isLocal ? '' : '; Domain=.danaedge.com; Secure')
 
           const requestedRedirect = searchParams.get('redirectTo')
 
@@ -160,34 +113,43 @@ const Login = ({ mode }: { mode: SystemMode }) => {
   }
 
   return (
-    <div className='flex bs-full justify-center'>
-      <div
-        className={classnames(
-          'flex bs-full items-center justify-center flex-1 min-bs-[100dvh] relative p-6 max-md:hidden',
-          {
-            'border-ie': settings.skin === 'bordered'
-          }
-        )}
-      >
-        <LoginIllustration src={characterIllustration} alt='character-illustration' />
-        {!hidden && <MaskImg alt='mask' src={authBackground} />}
-      </div>
-      <div className='flex justify-center items-center bs-full bg-backgroundPaper !min-is-full p-6 md:!min-is-[unset] md:p-12 md:is-[480px]'>
-        <div className='absolute block-start-5 sm:block-start-[33px] inline-start-6 sm:inline-start-[38px]'>
-          <Logo />
-        </div>
-        <div className='flex flex-col gap-6 is-full sm:is-auto md:is-full sm:max-is-[400px] md:max-is-[unset] mbs-8 sm:mbs-11 md:mbs-0'>
-          <div className='flex flex-col gap-1'>
-            <Typography variant='h4'>{`Welcome to ${themeConfig.templateName}`}</Typography>
-            <Typography>Sign in to manage your SSO applications and access policies.</Typography>
+    <main className='relative flex min-bs-[100dvh] items-center justify-center overflow-hidden bg-[#f5f7fb] p-5 dark:bg-[#151521] sm:p-8'>
+      <div className='pointer-events-none absolute -start-24 -top-24 size-80 rounded-full bg-primary/15 blur-3xl' />
+      <div className='pointer-events-none absolute -bottom-32 -end-20 size-96 rounded-full bg-[#7c5cff]/10 blur-3xl' />
+
+      <Card className='relative z-[1] is-full max-is-[460px] overflow-visible rounded-2xl border border-solid border-white/70 shadow-[0_24px_80px_rgba(27,35,58,0.14)] dark:border-white/10'>
+        <Chip
+          label='ADMIN'
+          variant='tonal'
+          color='primary'
+          size='small'
+          className='absolute end-5 top-5 font-semibold tracking-wide'
+        />
+
+        <CardContent className='!p-7 sm:!p-11'>
+          <div className='flex flex-col items-center gap-4 mbe-8'>
+            <div className='flex min-bs-[96px] min-is-[168px] items-center justify-center overflow-hidden rounded-xl bg-white px-3 py-2 shadow-sm'>
+              <Image
+                src={companyLogo}
+                alt='Dana Edge company logo'
+                width={152}
+                height={93}
+                priority
+                unoptimized
+                className='block h-auto max-h-[82px] w-auto max-w-[152px] object-contain'
+              />
+            </div>
+            <div className='flex flex-col items-center gap-2 text-center'>
+              <Typography variant='h4' className='font-semibold'>
+                {`Welcome to ${themeConfig.templateName}`}
+              </Typography>
+              <Typography color='text.secondary' className='max-is-[340px]'>
+                Sign in to manage your applications, identities and access policies.
+              </Typography>
+            </div>
           </div>
-          <form
-            noValidate
-            autoComplete='off'
-            action={() => {}}
-            onSubmit={form.onSubmit(handleSubmit)}
-            className='flex flex-col gap-6'
-          >
+
+          <form noValidate autoComplete='off' onSubmit={form.onSubmit(handleSubmit)} className='flex flex-col gap-6'>
             <CustomTextField
               {...form.getInputProps('username')}
               autoFocus
@@ -201,6 +163,7 @@ const Login = ({ mode }: { mode: SystemMode }) => {
               error={Boolean(form.errors.username || errorState)}
               helperText={form.errors.username || errorState?.message?.[0]}
             />
+
             <CustomTextField
               {...form.getInputProps('password')}
               fullWidth
@@ -218,10 +181,11 @@ const Login = ({ mode }: { mode: SystemMode }) => {
                     <InputAdornment position='end'>
                       <IconButton
                         edge='end'
-                        onClick={handleClickShowPassword}
+                        aria-label={isPasswordShown ? 'Hide password' : 'Show password'}
+                        onClick={() => setIsPasswordShown(show => !show)}
                         onMouseDown={event => event.preventDefault()}
                       >
-                        <i className={isPasswordShown ? 'tabler-eye' : 'tabler-eye-off'} />
+                        <i className={isPasswordShown ? 'tabler-eye-off' : 'tabler-eye'} />
                       </IconButton>
                     </InputAdornment>
                   )
@@ -230,30 +194,32 @@ const Login = ({ mode }: { mode: SystemMode }) => {
               error={Boolean(form.errors.password || errorState)}
               helperText={form.errors.password || errorState?.message?.[0]}
             />
-            <div className='flex justify-between items-center gap-x-3 gap-y-1 flex-wrap'>
-              <FormControlLabel control={<Checkbox defaultChecked />} label='Remember me' />
+
+            {/* <div className='flex justify-end'>
               <Typography
-                className='text-end'
+                className='text-end font-medium'
                 color='primary.main'
                 component={Link}
                 href={getLocalizedUrl('/forgot-password', locale as Locale)}
               >
                 Forgot password?
               </Typography>
-            </div>
-            <Button fullWidth variant='contained' type='submit' disabled={isPending}>
-              {isPending ? 'Signing in…' : 'Login'}
+            </div> */}
+
+            <Button
+              fullWidth
+              variant='contained'
+              size='large'
+              type='submit'
+              disabled={isPending}
+              className='min-bs-12 rounded-lg font-semibold'
+            >
+              {isPending ? <i className='tabler-loader-2 animate-spin text-xl' /> : 'Sign in'}
             </Button>
-            <div className='flex justify-center items-center flex-wrap gap-2'>
-              <Typography>New on our platform?</Typography>
-              <Typography component={Link} href={getLocalizedUrl('/register', locale as Locale)} color='primary.main'>
-                Create an account
-              </Typography>
-            </div>
           </form>
-        </div>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </main>
   )
 }
 
