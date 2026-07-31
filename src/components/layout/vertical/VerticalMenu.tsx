@@ -49,16 +49,27 @@ const VerticalMenu = ({ scrollMenu }: Props) => {
         menuItemStyles={menuItemStyles(verticalNavOptions, theme)}
         menuSectionStyles={menuSectionStyles(verticalNavOptions, theme)}
       >
-        <MenuItem href={`/${locale}/dashboard`} icon={<i className='tabler-layout-dashboard' />}>
+        <MenuItem href={`/${locale}/dashboard`} icon={<i className='tabler-gauge' />}>
           Dashboard
         </MenuItem>
-        <SubMenu label='Admin User' icon={<i className='tabler-users' />}>
-          <MenuItem href={`/${locale}/user-login-attempt`} icon={<i className='tabler-user' />}>
+        <SubMenu label='Admin User' icon={<i className='tabler-user-shield' />}>
+          <MenuItem href={`/${locale}/user-login-attempt`} icon={<i className='tabler-login-2' />}>
             User Login Attempt
           </MenuItem>
-          <MenuItem href={`/${locale}/admin-user-list`} icon={<i className='tabler-list' />}>
+          <MenuItem href={`/${locale}/admin-user-list`} icon={<i className='tabler-users-group' />}>
             Admin User List
           </MenuItem>
+        </SubMenu>
+        <SubMenu label='Permission' icon={<i className='tabler-shield-lock' />}>
+          <SubMenu label='Route Permission' icon={<i className='tabler-route' />}>
+            <MenuItem href={`/${locale}/route-permission-list`} icon={<i className='tabler-route-square' />}>
+              Route Permission List
+            </MenuItem>
+            <MenuItem href={`/${locale}/unassigned-route-permission`} icon={<i className='tabler-route-off' />}>
+              Unassigned Route Permission List
+            </MenuItem>
+          </SubMenu>
+          <SubMenu label='Role' icon={<i className='tabler-user-cog' />}></SubMenu>
         </SubMenu>
       </Menu>
     </ScrollWrapper>

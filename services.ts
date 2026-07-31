@@ -4,6 +4,8 @@ const baseURL = process.env.NEXT_PUBLIC_API_URL
 
 const adminURL = '/api/v1/env/mobile/superadmin'
 
+// --------------------- reusable function -------------------------
+
 export const getLoginToken = () => {
   if (typeof window === 'undefined') return null
 
@@ -52,7 +54,7 @@ const clearAdminAuth = () => {
   location.replace('/login')
 }
 
-const ADMIN_AUTH_ERROR_CODES = new Set([10184, 10255, 10274])
+const ADMIN_AUTH_ERROR_CODES = new Set([10184, 10255, 10274, 7777])
 
 const handleAdminAuthError = (responseCode: unknown) => {
   if (typeof responseCode !== 'number' || !ADMIN_AUTH_ERROR_CODES.has(responseCode)) return false
@@ -61,6 +63,10 @@ const handleAdminAuthError = (responseCode: unknown) => {
 
   return true
 }
+
+// -----------------------------------------------------------------
+
+// ------------------------- login API  ----------------------------
 
 export const Login = async ({ username, password }: { username: string; password: string }) => {
   const response = await axios({
@@ -76,6 +82,9 @@ export const Login = async ({ username, password }: { username: string; password
   return response.data
 }
 
+// -----------------------------------------------------------------
+
+// ----------------------- admin user API  -------------------------
 export const ListUserLoginAttempt = async ({
   start,
   length,
@@ -179,3 +188,86 @@ export const CreateAdminUser = async ({
   //else
   throw payload
 }
+
+export const LockUnlockAdminUser = async ({
+  user_id,
+  user_account_state_id
+}: {
+  user_id: number
+  user_account_state_id: number
+}) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/LockUnlockAdminUser`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { user_id, user_account_state_id }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+// -----------------------------------------------------------------
+
+// -------------------- route permission API  ----------------------
+export const RoutePermissionList = async (sso_client_identifier: string) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/getRoutePermission`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { sso_client_identifier }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+export const UnassignedRoutePermission = async (sso_client_identifier: string) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/getUnassignedRoutePermission`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { sso_client_identifier }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+// -----------------------------------------------------------------

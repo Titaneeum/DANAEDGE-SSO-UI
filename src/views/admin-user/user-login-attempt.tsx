@@ -207,7 +207,7 @@ const UserLoginAttempt = () => {
   return (
     <div className='space-y-4'>
       <div className='flex items-center gap-2'>
-        <i className='tabler-key' />
+        <i className='tabler-login-2' />
         <Typography variant='h4' fontWeight={700}>
           User Login Attempt
         </Typography>

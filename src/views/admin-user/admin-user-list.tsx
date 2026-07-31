@@ -2,7 +2,20 @@
 
 import * as React from 'react'
 
-import { Avatar, Button, Chip, Tooltip, Typography } from '@mui/material'
+import {
+  Avatar,
+  Button,
+  Chip,
+  Divider,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Switch,
+  Tooltip,
+  Typography
+} from '@mui/material'
 
 import type { ColumnDef } from '@tanstack/react-table'
 import dayjs from 'dayjs'
@@ -14,6 +27,7 @@ import CustomFilters from '@/components/CustomFilters'
 import CustomTable from '@/components/CustomTable'
 import { useData } from '../../../useData'
 import CreateAdminDialog from './dialog/create-admin-dialog'
+import JSONDialog from '@/components/JsonDialog'
 
 type AdminUserRow = {
   sequence_no: number
@@ -40,6 +54,10 @@ type AdminUserRow = {
 const AdminUserListPage = () => {
   const [tableData, setTableData] = React.useState<AdminUserRow[]>([])
   const [openCreateAdmin, setOpenCreateAdmin] = React.useState(false)
+  const [jsonDialog, setJsonDialog] = React.useState(false)
+  const [jsonStringView, setJsonStringView] = React.useState('')
+  const [actionAnchor, setActionAnchor] = React.useState<HTMLElement | null>(null)
+  const [selectedAdmin, setSelectedAdmin] = React.useState<AdminUserRow | null>(null)
 
   const [pagination, setPagination] = React.useState({
     total: 0,
@@ -54,6 +72,9 @@ const AdminUserListPage = () => {
   const [pageSize, setPageSize] = React.useState(10)
 
   const { mutate: GetAdminUserList, isPending: isAdminUserListPending } = useData().set.adminUser.adminUserList
+
+  const { mutate: LockUnlockAdminUser, isPending: isLockUnlockAdminUserPending } =
+    useData().set.adminUser.lockUnlockAdminUser
 
   const form = useForm({
     initialValues: {
@@ -169,6 +190,30 @@ const AdminUserListPage = () => {
 
           return createdAt.isValid() ? createdAt.format('DD MMM, YYYY HH:mm:ss') : '—'
         }
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => {
+          const admin = row.original
+
+          return (
+            <Tooltip title='More actions'>
+              <IconButton
+                size='small'
+                aria-label={`Open actions for ${admin.username}`}
+                aria-haspopup='menu'
+                onClick={event => {
+                  setSelectedAdmin(admin)
+                  setActionAnchor(event.currentTarget)
+                }}
+                className='rounded-lg'
+              >
+                <i className='tabler-dots text-xl' />
+              </IconButton>
+            </Tooltip>
+          )
+        }
       }
     ],
     []
@@ -243,6 +288,47 @@ const AdminUserListPage = () => {
     setOpenCreateAdmin(true)
   }
 
+  const handleCloseActionMenu = () => {
+    if (isLockUnlockAdminUserPending) return
+
+    setActionAnchor(null)
+  }
+
+  const refetchCurrentPage = () => {
+    const filters = jsonString ?? JSON.stringify(form.values.filter_array_objects)
+
+    fetchAdminUserList(pageIndex, pageSize, filters)
+  }
+
+  const handleToggleAdminStatus = () => {
+    if (!selectedAdmin || isLockUnlockAdminUserPending) return
+
+    const nextStatusId = selectedAdmin.user_account_status_id === 1 ? 2 : 1
+
+    LockUnlockAdminUser(
+      {
+        user_id: selectedAdmin.id,
+        user_account_state_id: nextStatusId
+      },
+      {
+        onSuccess: () => {
+          setActionAnchor(null)
+          setSelectedAdmin(null)
+          refetchCurrentPage()
+        },
+        onError: error => console.error(error)
+      }
+    )
+  }
+
+  const handleViewJson = () => {
+    if (!selectedAdmin) return
+
+    setJsonStringView(JSON.stringify(selectedAdmin, null, 2))
+    setJsonDialog(true)
+    setActionAnchor(null)
+  }
+
   React.useEffect(() => {
     handleSubmit({
       ...form.values
@@ -253,7 +339,7 @@ const AdminUserListPage = () => {
   return (
     <div className='space-y-4'>
       <div className='flex items-center gap-2'>
-        <i className='tabler-key' />
+        <i className='tabler-users-group' />
         <Typography variant='h4' fontWeight={700}>
           List of Admin User
         </Typography>
@@ -295,7 +381,67 @@ const AdminUserListPage = () => {
         onServerPageSizeChange={handleServerPageSizeChange}
       />
 
-      <CreateAdminDialog open={openCreateAdmin} onClose={() => setOpenCreateAdmin(false)} />
+      <Menu
+        anchorEl={actionAnchor}
+        open={Boolean(actionAnchor)}
+        onClose={handleCloseActionMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            className: 'min-is-[260px] rounded-xl shadow-lg',
+            elevation: 8
+          }
+        }}
+      >
+        <div className='px-4 pb-2 pt-3'>
+          <Typography variant='caption' color='text.secondary'>
+            ADMIN USER
+          </Typography>
+          <Typography className='truncate font-semibold' color='text.primary'>
+            {selectedAdmin?.username}
+          </Typography>
+        </div>
+        <Divider />
+        <MenuItem onClick={handleToggleAdminStatus} disabled={isLockUnlockAdminUserPending} className='gap-3 py-3'>
+          <ListItemIcon>
+            <i
+              className={`${selectedAdmin?.user_account_status_id === 1 ? 'tabler-lock-open' : 'tabler-lock'} text-xl`}
+            />
+          </ListItemIcon>
+          <ListItemText
+            primary={selectedAdmin?.user_account_status_id === 1 ? 'Account enabled' : 'Account disabled'}
+            secondary={
+              selectedAdmin?.user_account_status_id === 1 ? 'Switch off to lock access' : 'Switch on to restore access'
+            }
+          />
+          {isLockUnlockAdminUserPending ? (
+            <i className='tabler-loader-2 animate-spin text-xl text-primary' />
+          ) : (
+            <Switch
+              edge='end'
+              size='small'
+              checked={selectedAdmin?.user_account_status_id === 1}
+              inputProps={{ 'aria-label': 'Toggle admin account status' }}
+            />
+          )}
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleViewJson} className='gap-3 py-3'>
+          <ListItemIcon>
+            <i className='tabler-braces text-xl' />
+          </ListItemIcon>
+          <ListItemText primary='View JSON' secondary='Inspect the complete user record' />
+          <i className='tabler-chevron-right text-lg text-textSecondary' />
+        </MenuItem>
+      </Menu>
+
+      <CreateAdminDialog
+        open={openCreateAdmin}
+        onClose={() => setOpenCreateAdmin(false)}
+        onCreated={refetchCurrentPage}
+      />
+      <JSONDialog open={jsonDialog} handleClose={() => setJsonDialog(false)} jsonString={jsonStringView} />
     </div>
   )
 }
