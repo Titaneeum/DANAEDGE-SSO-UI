@@ -270,4 +270,100 @@ export const UnassignedRoutePermission = async (sso_client_identifier: string) =
   throw payload
 }
 
+export const CreateORUpdateRoutePermission = async ({
+  as,
+  sso_client_identifier,
+  permissions
+}: {
+  as: string
+  sso_client_identifier: string
+  permissions: Array<{ system_type_id: number; module_id: number; right_id: number }>
+}) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/createOrUpdateRoutePermission`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { as, sso_client_identifier, permissions }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+export const RoleList = async ({
+  start,
+  length,
+  filter_array_objects
+}: {
+  start: number
+  length: number
+  filter_array_objects: string
+}) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/ListRoles`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json'
+    },
+    data: { token: getLoginToken(), start, length, filter_array_objects }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+export const ModuleList = async ({
+  start,
+  length,
+  filter_array_objects
+}: {
+  start: number
+  length: number
+  filter_array_objects: string
+}) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/ListModules`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+
+    data: { start, length, filter_array_objects }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
 // -----------------------------------------------------------------

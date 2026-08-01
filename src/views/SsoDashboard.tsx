@@ -1,248 +1,385 @@
-// MUI Imports
-import Avatar from '@mui/material/Avatar'
+'use client'
+
+import * as React from 'react'
+
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
-import Grid from '@mui/material/Grid2'
 import LinearProgress from '@mui/material/LinearProgress'
-import Stack from '@mui/material/Stack'
+import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 
-const metrics = [
-  {
-    label: 'Connected apps',
-    value: '12',
-    detail: '2 added this month',
-    icon: 'tabler-apps',
-    color: 'primary' as const
-  },
-  {
-    label: 'Active identities',
-    value: '2,480',
-    detail: '98.7% provisioned',
-    icon: 'tabler-users',
-    color: 'info' as const
-  },
-  {
-    label: 'SSO success rate',
-    value: '99.94%',
-    detail: 'Last 30 days',
-    icon: 'tabler-shield-check',
-    color: 'success' as const
-  },
-  {
-    label: 'Security alerts',
-    value: '3',
-    detail: '1 needs attention',
-    icon: 'tabler-alert-triangle',
-    color: 'warning' as const
-  }
-]
+import DashCard from '@/components/DashCard'
+import SSOClientSwitcher, {
+  DEFAULT_SSO_CLIENT_IDENTIFIER,
+  type SSOClientIdentifier
+} from '@/components/SSOClientSwitcher'
+import { useData } from '../../useData'
 
-const applications = [
-  { name: 'Google Workspace', protocol: 'SAML 2.0', users: '2,186', icon: 'tabler-brand-google', color: '#4285f4' },
-  { name: 'Microsoft 365', protocol: 'OpenID Connect', users: '1,942', icon: 'tabler-brand-windows', color: '#00a4ef' },
-  { name: 'GitHub Enterprise', protocol: 'SAML 2.0', users: '624', icon: 'tabler-brand-github', color: '#24292f' },
-  { name: 'Slack', protocol: 'SAML 2.0', users: '1,730', icon: 'tabler-brand-slack', color: '#611f69' }
-]
+type RouteRow = {
+  as?: string
+  uri?: string
+  methods?: string[]
+  permissions?: unknown[]
+  enableRoutePermission?: number
+}
 
-const activity = [
-  { title: 'Google Workspace sign-in', meta: 'Aisyah Rahman · Kuala Lumpur', time: '2 min ago', state: 'Success' },
-  { title: 'New device challenge', meta: 'Daniel Wong · Johor Bahru', time: '8 min ago', state: 'Verified' },
-  { title: 'Microsoft 365 sign-in', meta: 'Nur Izzati · Penang', time: '14 min ago', state: 'Success' },
-  { title: 'Blocked sign-in attempt', meta: 'Unknown device · Singapore', time: '21 min ago', state: 'Blocked' }
-]
+type RouteSummary = {
+  assigned: number
+  enabled: number
+  total: number
+  unassigned: number
+}
+
+type RoleSummary = {
+  total: number
+  modules: number
+  rights: number
+  users: number
+}
+
+const emptyRouteSummary: RouteSummary = { assigned: 0, enabled: 0, total: 0, unassigned: 0 }
+const emptyRoleSummary: RoleSummary = { total: 0, modules: 0, rights: 0, users: 0 }
 
 const SsoDashboard = () => {
+  const { lang } = useParams<{ lang: string }>()
+  const [selectedClient, setSelectedClient] = React.useState<SSOClientIdentifier>(DEFAULT_SSO_CLIENT_IDENTIFIER)
+  const [routes, setRoutes] = React.useState<RouteRow[]>([])
+  const [routeSummary, setRouteSummary] = React.useState<RouteSummary>(emptyRouteSummary)
+  const [adminUsers, setAdminUsers] = React.useState(0)
+  const [roleSummary, setRoleSummary] = React.useState<RoleSummary>(emptyRoleSummary)
+  const [errors, setErrors] = React.useState<string[]>([])
+
+  const data = useData()
+  const { mutate: getRoutePermissions, isPending: isRoutesPending } = data.set.routePermission.list
+
+  const { mutate: getUnassignedRoutes, isPending: isSummaryPending } =
+    data.set.routePermission.unassignedRoutePermission
+
+  const { mutate: getAdminUsers, isPending: isAdminsPending } = data.set.adminUser.adminUserList
+  const { mutate: getRoles, isPending: isRolesPending } = data.set.routePermission.roleList
+
+  const isPermissionLoading = isRoutesPending || isSummaryPending
+  const coverage = routeSummary.total ? Math.round((routeSummary.assigned / routeSummary.total) * 100) : 0
+
+  const reportError = React.useCallback((message: string) => {
+    setErrors(previous => (previous.includes(message) ? previous : [...previous, message]))
+  }, [])
+
+  const fetchPermissionOverview = React.useCallback(
+    (client: SSOClientIdentifier) => {
+      getRoutePermissions(client, {
+        onSuccess: response => {
+          const rows = Array.isArray(response) ? response : response?.routes
+
+          setRoutes(Array.isArray(rows) ? rows : [])
+        },
+        onError: () => reportError('Route permissions could not be loaded.')
+      })
+
+      getUnassignedRoutes(client, {
+        onSuccess: response => {
+          setRouteSummary({
+            assigned: Number(response?.assigned_routes_count ?? 0),
+            enabled: Number(response?.enabled_routes_count ?? 0),
+            total: Number(response?.total_routes_from_sso_client ?? 0),
+            unassigned: Number(response?.unassigned_routes_count ?? 0)
+          })
+        },
+        onError: () => reportError('Route coverage could not be loaded.')
+      })
+    },
+    [getRoutePermissions, getUnassignedRoutes, reportError]
+  )
+
+  const fetchWorkspaceOverview = React.useCallback(() => {
+    getAdminUsers(
+      {
+        start: 0,
+        length: 1,
+        filter_array_objects: JSON.stringify([{ filter_column: 'source_reference_id', filter_value: '' }])
+      },
+      {
+        onSuccess: response => {
+          const responseData = response?.data
+          const rows = Array.isArray(responseData) ? responseData : responseData?.data
+
+          setAdminUsers(Number(responseData?.recordsTotal ?? rows?.length ?? 0))
+        },
+        onError: () => reportError('Admin user totals could not be loaded.')
+      }
+    )
+
+    getRoles(
+      {
+        start: 0,
+        length: 100,
+        filter_array_objects: JSON.stringify([
+          { filter_column: 'created_at', filter_start: '2018-01-01', filter_end: '2050-01-01' },
+          { filter_column: 'keyword', filter_value: '' }
+        ])
+      },
+      {
+        onSuccess: response => {
+          const roles = response?.roles ?? response?.data?.data ?? response?.data ?? []
+          const rows = Array.isArray(roles) ? roles : []
+
+          setRoleSummary({
+            total: Number(response?.recordsTotal ?? rows.length),
+            modules: rows.reduce((total: number, role: any) => total + Number(role?.modules_count ?? 0), 0),
+            rights: rows.reduce((total: number, role: any) => total + Number(role?.total_rights_count ?? 0), 0),
+            users: rows.reduce((total: number, role: any) => total + Number(role?.users_count ?? 0), 0)
+          })
+        },
+        onError: () => reportError('Role totals could not be loaded.')
+      }
+    )
+  }, [getAdminUsers, getRoles, reportError])
+
+  React.useEffect(() => {
+    fetchWorkspaceOverview()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  React.useEffect(() => {
+    setErrors([])
+    setRoutes([])
+    setRouteSummary(emptyRouteSummary)
+    fetchPermissionOverview(selectedClient)
+  }, [fetchPermissionOverview, selectedClient])
+
+  const refreshDashboard = () => {
+    setErrors([])
+    fetchWorkspaceOverview()
+    fetchPermissionOverview(selectedClient)
+  }
+
   return (
-    <Stack spacing={6}>
-      <Card
-        sx={{
-          overflow: 'hidden',
-          color: 'common.white',
-          background:
-            'linear-gradient(120deg, var(--mui-palette-primary-dark) 0%, var(--mui-palette-primary-main) 52%, #7367f0 100%)'
-        }}
-      >
-        <CardContent sx={{ p: { xs: 6, md: 8 }, '&:last-child': { pb: { xs: 6, md: 8 } } }}>
-          <Grid container spacing={6} alignItems='center'>
-            <Grid size={{ xs: 12, md: 8 }}>
+    <div className='space-y-6'>
+      <div className='flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
+        <div>
+          <div className='mb-1 flex items-center gap-2'>
+            <i className='tabler-gauge text-2xl text-primary' />
+            <Typography variant='h4' className='font-bold'>
+              SSO Operations Dashboard
+            </Typography>
+          </div>
+          <Typography color='text.secondary'>
+            Monitor administrators, roles, and route-permission coverage from one workspace.
+          </Typography>
+        </div>
+        <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+          <SSOClientSwitcher value={selectedClient} onChange={setSelectedClient} disabled={isPermissionLoading} />
+          <Button
+            variant='outlined'
+            startIcon={<i className={isPermissionLoading ? 'tabler-loader-2 animate-spin' : 'tabler-refresh'} />}
+            onClick={refreshDashboard}
+            disabled={isPermissionLoading || isAdminsPending || isRolesPending}
+          >
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {errors.length > 0 && (
+        <Alert severity='warning' onClose={() => setErrors([])}>
+          {errors.join(' ')} Other dashboard sections remain available.
+        </Alert>
+      )}
+
+      <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+        <DashCard
+          title='Admin Users'
+          value={adminUsers}
+          icon={<i className='tabler-users-group' />}
+          color='primary'
+          loading={isAdminsPending}
+        />
+        <DashCard
+          title='Roles'
+          value={roleSummary.total}
+          icon={<i className='tabler-user-cog' />}
+          color='info'
+          loading={isRolesPending}
+        />
+        <DashCard
+          title='Assigned Routes'
+          value={routeSummary.assigned}
+          icon={<i className='tabler-route-square' />}
+          color='success'
+          loading={isPermissionLoading}
+        />
+        <DashCard
+          title='Unassigned Routes'
+          value={routeSummary.unassigned}
+          icon={<i className='tabler-route-off' />}
+          color='warning'
+          loading={isPermissionLoading}
+        />
+      </div>
+
+      <div className='grid grid-cols-1 gap-6 xl:grid-cols-3'>
+        <Card className='rounded-xl border border-solid border-divider shadow-sm xl:col-span-2'>
+          <CardContent className='!p-6'>
+            <div className='mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
+              <div>
+                <Typography variant='h5' className='font-semibold'>
+                  Route Permission Coverage
+                </Typography>
+                <Typography variant='body2' color='text.secondary'>
+                  {selectedClient === 'MFS_DEFAULT' ? 'Merchant Facing System' : 'Payment Switch'} route readiness
+                </Typography>
+              </div>
               <Chip
-                size='small'
-                label='Identity platform'
-                sx={{ mb: 3, color: 'common.white', bgcolor: 'rgba(255,255,255,.16)' }}
+                variant='tonal'
+                color={coverage >= 80 ? 'success' : coverage >= 50 ? 'warning' : 'error'}
+                label={`${coverage}% covered`}
               />
-              <Typography variant='h3' color='inherit' sx={{ mb: 2 }}>
-                One secure identity. Every application.
-              </Typography>
-              <Typography sx={{ maxWidth: 650, mb: 5, color: 'rgba(255,255,255,.78)' }}>
-                Monitor access, manage connected applications and keep every sign-in protected from one place.
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Button variant='contained' color='inherit' startIcon={<i className='tabler-plus' />}>
-                  Connect application
-                </Button>
-                <Button
-                  variant='outlined'
-                  startIcon={<i className='tabler-shield-cog' />}
-                  sx={{ color: 'common.white', borderColor: 'rgba(255,255,255,.45)' }}
-                >
-                  Review policies
-                </Button>
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box
-                sx={{
-                  p: 5,
-                  borderRadius: 3,
-                  bgcolor: 'rgba(255,255,255,.1)',
-                  border: '1px solid rgba(255,255,255,.16)'
-                }}
-              >
-                <Stack direction='row' alignItems='center' justifyContent='space-between' sx={{ mb: 3 }}>
-                  <Typography color='inherit' fontWeight={600}>
-                    System status
-                  </Typography>
-                  <Chip size='small' label='Operational' color='success' />
-                </Stack>
-                <Typography variant='h4' color='inherit'>
-                  99.99%
-                </Typography>
-                <Typography variant='body2' sx={{ color: 'rgba(255,255,255,.7)' }}>
-                  Authentication uptime
-                </Typography>
+            </div>
+
+            {isSummaryPending ? (
+              <div className='space-y-4'>
+                <Skeleton height={28} />
+                <Skeleton height={90} />
+              </div>
+            ) : (
+              <>
                 <LinearProgress
                   variant='determinate'
-                  value={99.99}
-                  color='success'
-                  sx={{ mt: 3, height: 6, borderRadius: 4, bgcolor: 'rgba(255,255,255,.15)' }}
+                  value={coverage}
+                  color={coverage >= 80 ? 'success' : coverage >= 50 ? 'warning' : 'error'}
+                  sx={{ height: 10, borderRadius: 5, mb: 5 }}
                 />
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+                <div className='grid grid-cols-2 gap-4 sm:grid-cols-4'>
+                  {[
+                    ['Total routes', routeSummary.total, 'tabler-route'],
+                    ['Assigned', routeSummary.assigned, 'tabler-shield-check'],
+                    ['Enabled', routeSummary.enabled, 'tabler-circle-check'],
+                    ['Needs setup', routeSummary.unassigned, 'tabler-alert-circle']
+                  ].map(([label, value, icon]) => (
+                    <div key={String(label)} className='rounded-xl bg-actionHover p-4'>
+                      <i className={`${icon} mb-2 text-xl text-primary`} />
+                      <Typography variant='h5' className='font-bold'>{value}</Typography>
+                      <Typography variant='caption' color='text.secondary'>{label}</Typography>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
-      <Grid container spacing={6}>
-        {metrics.map(metric => (
-          <Grid key={metric.label} size={{ xs: 12, sm: 6, lg: 3 }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent>
-                <Stack direction='row' justifyContent='space-between' alignItems='flex-start'>
-                  <Box>
-                    <Typography color='text.secondary' variant='body2'>
-                      {metric.label}
-                    </Typography>
-                    <Typography variant='h4' sx={{ my: 1 }}>
-                      {metric.value}
-                    </Typography>
-                    <Typography variant='caption' color='text.secondary'>
-                      {metric.detail}
-                    </Typography>
-                  </Box>
-                  <Avatar variant='rounded' sx={{ bgcolor: `${metric.color}.lightOpacity`, color: `${metric.color}.main` }}>
-                    <i className={metric.icon} />
-                  </Avatar>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Grid container spacing={6}>
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ mb: 5 }}>
-                <Box>
-                  <Typography variant='h5'>Connected applications</Typography>
-                  <Typography variant='body2' color='text.secondary'>
-                    Applications using your identity provider
-                  </Typography>
-                </Box>
-                <Button size='small' endIcon={<i className='tabler-arrow-right' />}>
-                  View all
-                </Button>
-              </Stack>
-              <Stack divider={<Divider flexItem />} spacing={0}>
-                {applications.map(application => (
-                  <Stack
-                    key={application.name}
-                    direction='row'
-                    alignItems='center'
-                    justifyContent='space-between'
-                    sx={{ py: 3 }}
-                  >
-                    <Stack direction='row' spacing={3} alignItems='center'>
-                      <Avatar variant='rounded' sx={{ bgcolor: application.color, color: 'common.white' }}>
-                        <i className={application.icon} />
-                      </Avatar>
-                      <Box>
-                        <Typography fontWeight={600}>{application.name}</Typography>
-                        <Typography variant='caption' color='text.secondary'>
-                          {application.protocol}
-                        </Typography>
+        <Card className='rounded-xl border border-solid border-divider shadow-sm'>
+          <CardContent className='!p-6'>
+            <Typography variant='h5' className='font-semibold'>Permission Inventory</Typography>
+            <Typography variant='body2' color='text.secondary' className='mb-5'>
+              Access assigned across all loaded roles
+            </Typography>
+            <div className='space-y-1'>
+              {[
+                ['Module assignments', roleSummary.modules, 'tabler-box', 'primary'],
+                ['Granted rights', roleSummary.rights, 'tabler-key', 'info'],
+                ['Role memberships', roleSummary.users, 'tabler-users', 'success']
+              ].map(([label, value, icon, color], index) => (
+                <React.Fragment key={String(label)}>
+                  {index > 0 && <Divider />}
+                  <div className='flex items-center justify-between py-4'>
+                    <div className='flex items-center gap-3'>
+                      <Box
+                        className='flex size-10 items-center justify-center rounded-lg'
+                        sx={{ color: `${color}.main`, bgcolor: `${color}.lightOpacity` }}
+                      >
+                        <i className={`${icon} text-xl`} />
                       </Box>
-                    </Stack>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography fontWeight={600}>{application.users}</Typography>
-                      <Typography variant='caption' color='text.secondary'>
-                        assigned users
-                      </Typography>
-                    </Box>
-                  </Stack>
-                ))}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+                      <Typography>{label}</Typography>
+                    </div>
+                    {isRolesPending ? <Skeleton width={35} /> : <Typography className='font-bold'>{value}</Typography>}
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant='h5'>Authentication activity</Typography>
-              <Typography variant='body2' color='text.secondary' sx={{ mb: 5 }}>
-                Latest events across your organisation
-              </Typography>
-              <Stack spacing={4}>
-                {activity.map(event => (
-                  <Stack key={`${event.title}-${event.time}`} direction='row' spacing={3}>
-                    <Avatar
-                      sx={{
-                        width: 34,
-                        height: 34,
-                        bgcolor: event.state === 'Blocked' ? 'error.lightOpacity' : 'success.lightOpacity',
-                        color: event.state === 'Blocked' ? 'error.main' : 'success.main'
-                      }}
-                    >
-                      <i className={event.state === 'Blocked' ? 'tabler-shield-x' : 'tabler-shield-check'} />
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Stack direction='row' justifyContent='space-between' spacing={2}>
-                        <Typography fontWeight={600} noWrap>
-                          {event.title}
-                        </Typography>
-                        <Typography variant='caption' color='text.secondary' sx={{ whiteSpace: 'nowrap' }}>
-                          {event.time}
-                        </Typography>
-                      </Stack>
-                      <Typography variant='body2' color='text.secondary' noWrap>
-                        {event.meta}
+      <div className='grid grid-cols-1 gap-6 xl:grid-cols-3'>
+        <Card className='rounded-xl border border-solid border-divider shadow-sm xl:col-span-2'>
+          <CardContent className='!p-0'>
+            <div className='flex items-center justify-between px-6 py-5'>
+              <div>
+                <Typography variant='h5' className='font-semibold'>Protected Routes</Typography>
+                <Typography variant='body2' color='text.secondary'>Recent routes for the selected SSO client</Typography>
+              </div>
+              <Button component={Link} href={`/${lang}/route-permission-list`} endIcon={<i className='tabler-arrow-right' />}>
+                View all
+              </Button>
+            </div>
+            <Divider />
+            {isRoutesPending ? (
+              <div className='space-y-3 p-6'>{Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} height={45} />)}</div>
+            ) : routes.length ? (
+              routes.slice(0, 5).map((route, index) => (
+                <React.Fragment key={`${route.as ?? route.uri}-${index}`}>
+                  {index > 0 && <Divider />}
+                  <div className='flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between'>
+                    <div className='min-is-0'>
+                      <Typography className='truncate font-medium'>{route.as || route.uri || 'Unnamed route'}</Typography>
+                      <Typography variant='caption' color='text.secondary'>
+                        {route.permissions?.length ?? 0} permission{route.permissions?.length === 1 ? '' : 's'} assigned
                       </Typography>
-                    </Box>
-                  </Stack>
-                ))}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Stack>
+                    </div>
+                    <div className='flex shrink-0 gap-2'>
+                      {(route.methods ?? []).map(method => <Chip key={method} size='small' variant='tonal' color='primary' label={method} />)}
+                      <Chip size='small' variant='tonal' color={route.enableRoutePermission === 1 ? 'success' : 'error'} label={route.enableRoutePermission === 1 ? 'Enabled' : 'Disabled'} />
+                    </div>
+                  </div>
+                </React.Fragment>
+              ))
+            ) : (
+              <div className='px-6 py-12 text-center'>
+                <i className='tabler-route-off mb-2 text-4xl text-textDisabled' />
+                <Typography color='text.secondary'>No assigned routes for this SSO client.</Typography>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className='rounded-xl border border-solid border-divider shadow-sm'>
+          <CardContent className='!p-6'>
+            <Typography variant='h5' className='font-semibold'>Workspace Shortcuts</Typography>
+            <Typography variant='body2' color='text.secondary' className='mb-4'>Manage the areas summarized here</Typography>
+            <div className='space-y-2'>
+              {[
+                ['Admin users', 'admin-user-list', 'tabler-users-group'],
+                ['Route permissions', 'route-permission-list', 'tabler-route-square'],
+                ['Unassigned routes', 'unassigned-route-permission', 'tabler-route-off'],
+                ['Roles', 'role-list', 'tabler-user-cog']
+              ].map(([label, path, icon]) => (
+                <Button
+                  key={path}
+                  component={Link}
+                  href={`/${lang}/${path}`}
+                  fullWidth
+                  color='secondary'
+                  className='!justify-between !px-4 !py-3'
+                  startIcon={<i className={`${icon} text-xl`} />}
+                  endIcon={<i className='tabler-chevron-right' />}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 }
 

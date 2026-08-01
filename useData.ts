@@ -2,10 +2,13 @@ import { useMutation } from '@tanstack/react-query'
 
 import {
   CreateAdminUser,
+  CreateORUpdateRoutePermission,
   ListAdminUsers,
   ListUserLoginAttempt,
   LockUnlockAdminUser,
   Login,
+  ModuleList,
+  RoleList,
   RoutePermissionList,
   UnassignedRoutePermission
 } from './services'
@@ -46,6 +49,18 @@ export const useData = () => {
         unassignedRoutePermission: useMutation({
           mutationKey: ['unassignedRoutePermission'],
           mutationFn: UnassignedRoutePermission
+        }),
+        createORUpdateRoutePermission: useMutation({
+          mutationKey: ['createORUpdateRoutePermission'],
+          mutationFn: CreateORUpdateRoutePermission
+        }),
+        moduleList: useMutation({
+          mutationKey: ['moduleList'],
+          mutationFn: ModuleList
+        }),
+        roleList: useMutation({
+          mutationKey: ['roleList'],
+          mutationFn: RoleList
         })
       }
     }

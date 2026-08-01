@@ -3,6 +3,7 @@
 import * as React from 'react'
 
 import {
+  Button,
   Chip,
   Divider,
   IconButton,
@@ -23,13 +24,26 @@ import type { ToastItem } from '@/libs/types'
 import CustomToast from '@/components/custom-toast'
 import CustomTable from '@/components/CustomTable'
 import JSONDialog from '@/components/JsonDialog'
+import SSOClientSwitcher, {
+  DEFAULT_SSO_CLIENT_IDENTIFIER,
+  type SSOClientIdentifier
+} from '@/components/SSOClientSwitcher'
+import CreateRoutePermissionDialog from './dialog/create-permission-dialog'
+import UpdateRoutePermissionDialog from './dialog/update-permission-dialog'
+
+type RoutePermission = {
+  system_type_id?: number
+  module_id?: number | null
+  module_name?: string
+  right_id?: number | null
+}
 
 type RoutePermissionRow = {
   as: string
   enableRoutePermission: number
   methods: string[]
-  permissions: unknown[]
-  type: string
+  permissions: RoutePermission[]
+  type: string | string[]
   uri: string
 }
 
@@ -57,6 +71,8 @@ const RoutePermissionListPage = () => {
   const [selectedRoute, setSelectedRoute] = React.useState<RoutePermissionRow | null>(null)
   const [jsonDialog, setJsonDialog] = React.useState(false)
   const [jsonStringView, setJsonStringView] = React.useState('')
+  const [openCreatePermission, setOpenCreatePermission] = React.useState(false)
+  const [openUpdateRoutePermission, setOpenUpdateRoutePermission] = React.useState(false)
 
   const pushToast = React.useCallback((type: ToastItem['type'], message: string) => {
     setToasts(previous => [...previous, { id: Date.now() + Math.random(), type, message }])
@@ -68,9 +84,9 @@ const RoutePermissionListPage = () => {
 
   const { mutate: RoutePermissionList, isPending: isRoutePermissionListPending } = useData().set.routePermission.list
 
-  const form = useForm({
+  const form = useForm<{ sso_client_identifier: SSOClientIdentifier }>({
     initialValues: {
-      sso_client_identifier: 'MFS_DEFAULT'
+      sso_client_identifier: DEFAULT_SSO_CLIENT_IDENTIFIER
     }
   })
 
@@ -126,7 +142,12 @@ const RoutePermissionListPage = () => {
         accessorKey: 'type',
         header: 'Access Type',
         cell: ({ row }) => {
-          const isAuthenticated = row.original.type.toUpperCase() === 'AUTHENTICATED'
+          const accessTypes = (Array.isArray(row.original.type) ? row.original.type : [row.original.type]).filter(
+            (type): type is string => typeof type === 'string' && Boolean(type)
+          )
+
+          const isAuthenticated = accessTypes.some(type => type.toUpperCase() === 'AUTHENTICATED')
+          const accessTypeLabel = accessTypes.map(type => type.replaceAll('_', ' ')).join(', ')
 
           return (
             <Chip
@@ -134,7 +155,7 @@ const RoutePermissionListPage = () => {
               variant='tonal'
               color={isAuthenticated ? 'info' : 'default'}
               icon={<i className={isAuthenticated ? 'tabler-lock' : 'tabler-world'} />}
-              label={row.original.type.replaceAll('_', ' ') || 'Unknown'}
+              label={accessTypeLabel || 'Unknown'}
               className='capitalize'
             />
           )
@@ -204,7 +225,7 @@ const RoutePermissionListPage = () => {
     []
   )
 
-  const handleSubmit = (values: any) => {
+  const handleSubmit = (values: { sso_client_identifier: SSOClientIdentifier }) => {
     RoutePermissionList(values.sso_client_identifier, {
       onSuccess: data => {
         setTableData(data ?? [])
@@ -232,6 +253,31 @@ const RoutePermissionListPage = () => {
     setActionAnchor(null)
   }
 
+  const handleOpenUpdate = () => {
+    if (!selectedRoute) return
+
+    setOpenUpdateRoutePermission(true)
+    setActionAnchor(null)
+  }
+
+  const updateRouteData = React.useMemo(
+    () =>
+      selectedRoute
+        ? {
+            as: selectedRoute.as,
+            sso_client_identifier: form.values.sso_client_identifier,
+            permissions: selectedRoute.permissions
+          }
+        : null,
+    [form.values.sso_client_identifier, selectedRoute]
+  )
+
+  const handleSSOClientChange = (ssoClientIdentifier: SSOClientIdentifier) => {
+    form.setFieldValue('sso_client_identifier', ssoClientIdentifier)
+    setTableData([])
+    handleSubmit({ sso_client_identifier: ssoClientIdentifier })
+  }
+
   return (
     <div className='space-y-4'>
       <div className='flex items-center gap-2'>
@@ -240,7 +286,28 @@ const RoutePermissionListPage = () => {
           Route Permission List
         </Typography>
       </div>
-      <CustomTable data={tableData ?? []} isLoading={isRoutePermissionListPending} column={column ?? []} />
+      <CustomTable
+        data={tableData ?? []}
+        isLoading={isRoutePermissionListPending}
+        column={column ?? []}
+        leftSection={
+          <SSOClientSwitcher
+            value={form.values.sso_client_identifier}
+            onChange={handleSSOClientChange}
+            disabled={isRoutePermissionListPending}
+          />
+        }
+        rightSection={
+          <Button
+            color='primary'
+            variant='contained'
+            startIcon={<i className='tabler-plus' />}
+            onClick={() => setOpenCreatePermission(true)}
+          >
+            Create Route Permission
+          </Button>
+        }
+      />
 
       <Menu
         anchorEl={actionAnchor}
@@ -273,9 +340,27 @@ const RoutePermissionListPage = () => {
           <ListItemText primary='View JSON' secondary='Inspect the complete route record' />
           <i className='tabler-chevron-right text-lg text-textSecondary' />
         </MenuItem>
+        <MenuItem onClick={handleOpenUpdate} className='gap-3 py-3'>
+          <ListItemIcon>
+            <i className='tabler-edit text-xl' />
+          </ListItemIcon>
+          <ListItemText primary='Update permission' secondary='Edit the assigned module rights' />
+          <i className='tabler-chevron-right text-lg text-textSecondary' />
+        </MenuItem>
       </Menu>
 
       <JSONDialog open={jsonDialog} handleClose={() => setJsonDialog(false)} jsonString={jsonStringView} />
+      <CreateRoutePermissionDialog
+        open={openCreatePermission}
+        onClose={() => setOpenCreatePermission(false)}
+        onCreated={() => handleSubmit(form.values)}
+      />
+      <UpdateRoutePermissionDialog
+        open={openUpdateRoutePermission}
+        onClose={() => setOpenUpdateRoutePermission(false)}
+        onSuccess={() => handleSubmit(form.values)}
+        data={updateRouteData}
+      />
 
       {toasts.map((toast, index) => (
         <CustomToast

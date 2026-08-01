@@ -69,7 +69,11 @@ const VerticalMenu = ({ scrollMenu }: Props) => {
               Unassigned Route Permission List
             </MenuItem>
           </SubMenu>
-          <SubMenu label='Role' icon={<i className='tabler-user-cog' />}></SubMenu>
+          <SubMenu label='Role' icon={<i className='tabler-user-cog' />}>
+            <MenuItem href={`/${locale}/role-list`} icon={<i className='tabler-route-off' />}>
+              Role List
+            </MenuItem>
+          </SubMenu>
         </SubMenu>
       </Menu>
     </ScrollWrapper>

@@ -22,6 +22,10 @@ import CustomTable from '@/components/CustomTable'
 import JSONDialog from '@/components/JsonDialog'
 import CustomToast from '@/components/custom-toast'
 import DashCard from '@/components/DashCard'
+import SSOClientSwitcher, {
+  DEFAULT_SSO_CLIENT_IDENTIFIER,
+  type SSOClientIdentifier
+} from '@/components/SSOClientSwitcher'
 import type { ToastItem } from '@/libs/types'
 import { useData } from '../../../useData'
 
@@ -38,7 +42,7 @@ type UnassignedRouteRow = {
   uri: string
   methods: string[]
   as: string
-  type: string
+  type: string | string[]
   enableRoutePermission: number
   permissions: RoutePermission[]
 }
@@ -86,9 +90,9 @@ const UnassignedRoutePermissionPage = () => {
   const { mutate: UnassignedRoutePermission, isPending: isUnassignedRoutePermissionPending } =
     useData().set.routePermission.unassignedRoutePermission
 
-  const form = useForm({
+  const form = useForm<{ sso_client_identifier: SSOClientIdentifier }>({
     initialValues: {
-      sso_client_identifier: 'MFS_DEFAULT'
+      sso_client_identifier: DEFAULT_SSO_CLIENT_IDENTIFIER
     }
   })
 
@@ -152,7 +156,12 @@ const UnassignedRoutePermissionPage = () => {
         accessorKey: 'type',
         header: 'Access Type',
         cell: ({ row }) => {
-          const isAuthenticated = row.original.type.toUpperCase() === 'AUTHENTICATED'
+          const accessTypes = (Array.isArray(row.original.type) ? row.original.type : [row.original.type]).filter(
+            (type): type is string => typeof type === 'string' && Boolean(type)
+          )
+
+          const isAuthenticated = accessTypes.some(type => type.toUpperCase() === 'AUTHENTICATED')
+          const accessTypeLabel = accessTypes.map(type => type.replaceAll('_', ' ')).join(', ')
 
           return (
             <Chip
@@ -160,7 +169,7 @@ const UnassignedRoutePermissionPage = () => {
               variant='tonal'
               color={isAuthenticated ? 'info' : 'default'}
               icon={<i className={isAuthenticated ? 'tabler-lock' : 'tabler-world'} />}
-              label={row.original.type.replaceAll('_', ' ') || 'Unknown'}
+              label={accessTypeLabel || 'Unknown'}
               className='capitalize'
             />
           )
@@ -269,6 +278,13 @@ const UnassignedRoutePermissionPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const handleSSOClientChange = (ssoClientIdentifier: SSOClientIdentifier) => {
+    form.setFieldValue('sso_client_identifier', ssoClientIdentifier)
+    setTableData([])
+    setRouteSummary(emptyRouteSummary)
+    handleSubmit({ sso_client_identifier: ssoClientIdentifier })
+  }
+
   const handleViewJson = () => {
     if (!selectedRoute) return
 
@@ -321,7 +337,16 @@ const UnassignedRoutePermissionPage = () => {
         data={tableData ?? []}
         column={columns ?? []}
         isLoading={isUnassignedRoutePermissionPending}
-        leftSection={<Typography className='font-semibold'>Route List</Typography>}
+        leftSection={
+          <>
+            <Typography className='font-semibold'>Route List</Typography>
+            <SSOClientSwitcher
+              value={form.values.sso_client_identifier}
+              onChange={handleSSOClientChange}
+              disabled={isUnassignedRoutePermissionPending}
+            />
+          </>
+        }
       />
 
       <Menu
