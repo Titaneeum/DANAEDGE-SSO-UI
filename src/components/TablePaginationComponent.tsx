@@ -39,13 +39,14 @@ const TablePaginationComponent = (props: TablePaginationProps) => {
     const pageCount = Math.max(1, Math.ceil(totalItems / rowsPerPage))
 
     return (
-      <div className='flex justify-between items-center flex-wrap pli-6 border-bs bs-auto plb-[12.5px] gap-2'>
+      <div className='flex flex-col items-center justify-between gap-3 border-bs px-4 py-3 sm:flex-row sm:px-6'>
         <Typography color='text.disabled'>{`Showing ${start} to ${end} of ${totalItems} entries`}</Typography>
 
         <Pagination
           shape='rounded'
           color='primary'
           variant='tonal'
+          size='small'
           count={pageCount} // total pages
           page={page + 1} // Pagination is 1-based
           onChange={(event, newPage) => {
@@ -73,13 +74,14 @@ const TablePaginationComponent = (props: TablePaginationProps) => {
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <div className='flex justify-between items-center flex-wrap pli-6 border-bs bs-auto plb-[12.5px] gap-2'>
+    <div className='flex flex-col items-center justify-between gap-3 border-bs px-4 py-3 sm:flex-row sm:px-6'>
       <Typography color='text.disabled'>{`Showing ${start} to ${end} of ${total} entries`}</Typography>
 
       <Pagination
         shape='rounded'
         color='primary'
         variant='tonal'
+        size='small'
         count={pageCount}
         page={pageIndex + 1}
         onChange={(_, page) => table.setPageIndex(page - 1)}

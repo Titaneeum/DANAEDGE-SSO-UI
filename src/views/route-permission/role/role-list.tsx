@@ -3,6 +3,7 @@
 import * as React from 'react'
 
 import {
+  Button,
   Chip,
   Divider,
   IconButton,
@@ -28,6 +29,10 @@ import CustomTextField from '@/@core/components/mui/TextField'
 import type { ToastItem } from '@/libs/types'
 import CustomToast from '@/components/custom-toast'
 import JSONDialog from '@/components/JsonDialog'
+import CreateRoleDialog from '../dialog/create-role'
+import type { RoleDialogData } from '../dialog/create-role'
+import UpdateRoleDialog from '../dialog/update-role'
+import DeleteRoleDialog from '../dialog/delete-role'
 
 type RoleModule = {
   module_id: number
@@ -35,11 +40,9 @@ type RoleModule = {
   rights_count: number
 }
 
-type RoleRow = {
+type RoleRow = Omit<RoleDialogData, 'modules'> & {
   sequence_no: number
   id: number
-  role_name: string
-  description: string
   created_at: string
   updated_at: string
   users_count: number
@@ -62,6 +65,9 @@ const RoleListPage = () => {
   const [selectedRole, setSelectedRole] = React.useState<RoleRow | null>(null)
   const [jsonDialog, setJsonDialog] = React.useState(false)
   const [jsonStringView, setJsonStringView] = React.useState('')
+  const [openCreateRole, setOpenCreateRole] = React.useState(false)
+  const [openUpdateRole, setOpenUpdateRole] = React.useState(false)
+  const [openDeleteRole, setOpenDeleteRole] = React.useState(false)
 
   const { mutate: RoleList, isPending: isRoleListPending } = useData().set.routePermission.roleList
 
@@ -315,6 +321,20 @@ const RoleListPage = () => {
     setActionAnchor(null)
   }
 
+  const handleOpenUpdate = () => {
+    if (!selectedRole) return
+
+    setOpenUpdateRole(true)
+    setActionAnchor(null)
+  }
+
+  const handleOpenDelete = () => {
+    if (!selectedRole?.can_delete) return
+
+    setOpenDeleteRole(true)
+    setActionAnchor(null)
+  }
+
   return (
     <div className='space-y-4'>
       <div className='flex items-center gap-2'>
@@ -330,7 +350,7 @@ const RoleListPage = () => {
           activeTags={activeTags}
           onClear={handleClearAllFilters}
         >
-          <div className='grid grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
             <AppReactDatepicker
               selected={asDate(form.values.filter_array_objects[0].filter_start)}
               onChange={(d: Date | null) => form.setFieldValue('filter_array_objects.0.filter_start', d)}
@@ -373,6 +393,16 @@ const RoleListPage = () => {
         serverPageSize={pageSize}
         onServerPageChange={handleServerPageChange}
         onServerPageSizeChange={handleServerPageSizeChange}
+        rightSection={
+          <Button
+            color='primary'
+            variant='contained'
+            startIcon={<i className='tabler-plus' />}
+            onClick={() => setOpenCreateRole(true)}
+          >
+            Create Role
+          </Button>
+        }
       />
 
       <Menu
@@ -406,10 +436,47 @@ const RoleListPage = () => {
           <ListItemText primary='View JSON' secondary='Inspect the complete role record' />
           <i className='tabler-chevron-right text-lg text-textSecondary' />
         </MenuItem>
+        <MenuItem onClick={handleOpenUpdate} className='gap-3 py-3'>
+          <ListItemIcon>
+            <i className='tabler-edit text-xl' />
+          </ListItemIcon>
+          <ListItemText primary='Update role' secondary='Edit role details and permissions' />
+          <i className='tabler-chevron-right text-lg text-textSecondary' />
+        </MenuItem>
+        <MenuItem
+          onClick={handleOpenDelete}
+          disabled={!selectedRole?.can_delete}
+          className='gap-3 py-3 text-error'
+        >
+          <ListItemIcon>
+            <i className='tabler-trash text-xl text-error' />
+          </ListItemIcon>
+          <ListItemText
+            primary='Delete role'
+            secondary={selectedRole?.can_delete ? 'Permanently remove this role' : 'Protected roles cannot be deleted'}
+          />
+          <i className='tabler-chevron-right text-lg' />
+        </MenuItem>
       </Menu>
 
       <JSONDialog open={jsonDialog} handleClose={() => setJsonDialog(false)} jsonString={jsonStringView} />
-
+      <CreateRoleDialog
+        open={openCreateRole}
+        onClose={() => setOpenCreateRole(false)}
+        onSuccess={() => handleSubmit(form.values)}
+      />
+      <UpdateRoleDialog
+        open={openUpdateRole}
+        onClose={() => setOpenUpdateRole(false)}
+        onSuccess={() => handleSubmit(form.values)}
+        data={selectedRole}
+      />
+      <DeleteRoleDialog
+        open={openDeleteRole}
+        onClose={() => setOpenDeleteRole(false)}
+        onSuccess={() => handleSubmit(form.values)}
+        data={selectedRole}
+      />
       {toasts.map((toast, index) => (
         <CustomToast
           key={toast.id}

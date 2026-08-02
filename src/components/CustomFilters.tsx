@@ -49,7 +49,7 @@ const CustomFilters: React.FC<CustomFiltersProps> = ({
   const hasAnyFilter = activeCount > 0
 
   return (
-    <Accordion defaultExpanded={defaultExpanded}>
+    <Accordion defaultExpanded={defaultExpanded} className='overflow-hidden rounded-xl'>
       <AccordionSummary>
         <Stack direction='row' alignItems='center' spacing={2}>
           <i className='tabler-adjustments' />
@@ -59,7 +59,7 @@ const CustomFilters: React.FC<CustomFiltersProps> = ({
         </Stack>
       </AccordionSummary>
 
-      <AccordionDetails>
+      <AccordionDetails className='!px-4 !pb-4 sm:!px-6 sm:!pb-6'>
         {/* Parent defines <form>; this is just layout */}
         <div className='space-y-4'>
           {/* Filter inputs */}
@@ -77,10 +77,10 @@ const CustomFilters: React.FC<CustomFiltersProps> = ({
           </Box>
 
           {/* Actions */}
-          <div className='space-x-4'>
+          <div className='flex flex-col gap-3 sm:flex-row'>
             {/* submit triggers outer <form> submit */}
             <Button
-              className='w-40'
+              className='is-full sm:is-auto sm:min-is-[160px]'
               type='submit'
               variant='contained'
               startIcon={loading ? <i className='tabler-loader animate-spin' /> : <i className='tabler-search' />}
@@ -88,7 +88,13 @@ const CustomFilters: React.FC<CustomFiltersProps> = ({
               {applyLabel}
             </Button>
 
-            <Button type='button' onClick={onClear} variant='outlined' startIcon={<i className='tabler-x' />}>
+            <Button
+              className='is-full sm:is-auto'
+              type='button'
+              onClick={onClear}
+              variant='outlined'
+              startIcon={<i className='tabler-x' />}
+            >
               {clearLabel}
             </Button>
           </div>

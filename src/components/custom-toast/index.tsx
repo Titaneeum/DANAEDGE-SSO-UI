@@ -124,6 +124,8 @@ const CustomToast = ({
       autoHideDuration={6000}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       sx={{
+        left: { xs: 12, sm: 'auto' },
+        right: { xs: 12, sm: 24 },
         '&.MuiSnackbar-root': {
           top: topOffset + offset * 86
         }
@@ -134,7 +136,7 @@ const CustomToast = ({
         onClose={undefined}
         variant='filled'
         sx={{
-          width: 420,
+          width: { xs: '100%', sm: 420 },
           borderRadius: 3,
           boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
           overflow: 'hidden',

@@ -272,10 +272,10 @@ function CustomTable<T extends object = any>({
   return (
     <Card>
       {/* Top bar */}
-      <div className='flex justify-between flex-col items-start md:flex-row md:items-center p-6 border-bs gap-4'>
-        <div className='flex items-center gap-2'>{leftSection}</div>
+      <div className='flex flex-col items-stretch justify-between gap-4 border-bs p-4 sm:p-6 lg:flex-row lg:items-center'>
+        <div className='flex min-is-0 flex-wrap items-center gap-2 max-sm:[&>*]:is-full'>{leftSection}</div>
 
-        <div className='flex flex-col sm:flex-row max-sm:is-full items-start sm:items-center gap-4'>
+        <div className='flex is-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:is-auto lg:justify-end'>
           {/* 🔎 Zoom controls */}
           <Box className='flex items-center gap-2'>
             <ToggleButtonGroup
@@ -361,7 +361,7 @@ function CustomTable<T extends object = any>({
             width: `${100 / zoom}%`
           }}
         >
-          <table className={tableStyles.table}>
+          <table className={`${tableStyles.table} min-is-[760px]`}>
             {withHeader && (
               <thead>
                 {table.getHeaderGroups().map(headerGroup => (

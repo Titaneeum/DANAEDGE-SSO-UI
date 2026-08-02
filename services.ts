@@ -366,4 +366,122 @@ export const ModuleList = async ({
   throw payload
 }
 
+export const CreateOrUpdateRole = async ({
+  role_name,
+  description,
+  role_permissions
+}: {
+  role_name: string
+  description: string
+  role_permissions: Array<{
+    sso_client_identifier: string
+    system_type_id: number
+    modules_permissions: Array<{ module_id: number; right_status_ids: number[] }>
+  }>
+}) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/CreateOrUpdateRole`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { role_name, description, role_permissions }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+export const DeleteRole = async (role_id: number) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/DeleteRole`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { role_id }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+export const AssignRoleToUser = async ({ role_id, user_id }: { role_id: number; user_id: number }) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/AssignRoleToUser`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { role_id, user_id }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
+export const CreateOrUpdateModule = async ({
+  module_name,
+  module_code,
+  description,
+  associated_sso_clients
+}: {
+  module_name: string
+  module_code: string
+  description: string
+  associated_sso_clients: Array<{ sso_client_identifier: string; system_type_id: number }>
+}) => {
+  const response = await axios({
+    baseURL,
+    url: `${adminURL}/CreateOrUpdateModule`,
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${getLoginToken()}`
+    },
+    data: { module_name, module_code, description, associated_sso_clients }
+  })
+
+  const payload = response.data
+
+  if (payload.response_code === 2100) {
+    return payload.data
+  }
+
+  handleAdminAuthError(payload.response_code)
+
+  //else
+  throw payload
+}
+
 // -----------------------------------------------------------------

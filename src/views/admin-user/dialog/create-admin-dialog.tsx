@@ -133,10 +133,10 @@ const CreateAdminDialog = ({ open, onClose, onCreated }: CreateAdminDialogProps)
         onClose={resetAndClose}
         fullWidth
         maxWidth='sm'
-        PaperProps={{ className: 'rounded-2xl overflow-visible' }}
+        PaperProps={{ className: 'rounded-2xl overflow-visible !m-3 sm:!m-8' }}
       >
         <form noValidate autoComplete='off' onSubmit={form.onSubmit(handleSubmit)}>
-          <DialogTitle className='flex items-start justify-between gap-4 border-0 border-b border-solid border-divider !px-7 !py-6'>
+          <DialogTitle className='flex items-start justify-between gap-3 border-0 border-b border-solid border-divider !px-4 !py-4 sm:!px-7 sm:!py-6'>
             <div className='flex items-center gap-4'>
               <div className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary'>
                 <i className='tabler-user-plus text-2xl' />
@@ -161,7 +161,7 @@ const CreateAdminDialog = ({ open, onClose, onCreated }: CreateAdminDialogProps)
             </IconButton>
           </DialogTitle>
 
-          <DialogContent className='!px-7 !py-7'>
+          <DialogContent className='!px-4 !py-5 sm:!px-7 sm:!py-7'>
             <div className='grid grid-cols-1 gap-5 sm:grid-cols-2'>
               <CustomTextField
                 {...form.getInputProps('first_name')}
@@ -242,7 +242,7 @@ const CreateAdminDialog = ({ open, onClose, onCreated }: CreateAdminDialogProps)
             </div>
           </DialogContent>
 
-          <DialogActions className='border-0 border-t border-solid border-divider !px-7 !py-5'>
+          <DialogActions className='flex-col-reverse gap-2 border-0 border-t border-solid border-divider !px-4 !py-4 sm:flex-row sm:!px-7 sm:!py-5 max-sm:[&>button]:!m-0 max-sm:[&>button]:is-full'>
             <Button
               type='button'
               variant='outlined'

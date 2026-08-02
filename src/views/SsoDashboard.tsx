@@ -45,8 +45,18 @@ type RoleSummary = {
   users: number
 }
 
+type ModuleSummary = {
+  total: number
+  protected: number
+  custom: number
+  routes: number
+  roles: number
+  users: number
+}
+
 const emptyRouteSummary: RouteSummary = { assigned: 0, enabled: 0, total: 0, unassigned: 0 }
 const emptyRoleSummary: RoleSummary = { total: 0, modules: 0, rights: 0, users: 0 }
+const emptyModuleSummary: ModuleSummary = { total: 0, protected: 0, custom: 0, routes: 0, roles: 0, users: 0 }
 
 const SsoDashboard = () => {
   const { lang } = useParams<{ lang: string }>()
@@ -55,6 +65,7 @@ const SsoDashboard = () => {
   const [routeSummary, setRouteSummary] = React.useState<RouteSummary>(emptyRouteSummary)
   const [adminUsers, setAdminUsers] = React.useState(0)
   const [roleSummary, setRoleSummary] = React.useState<RoleSummary>(emptyRoleSummary)
+  const [moduleSummary, setModuleSummary] = React.useState<ModuleSummary>(emptyModuleSummary)
   const [errors, setErrors] = React.useState<string[]>([])
 
   const data = useData()
@@ -65,8 +76,9 @@ const SsoDashboard = () => {
 
   const { mutate: getAdminUsers, isPending: isAdminsPending } = data.set.adminUser.adminUserList
   const { mutate: getRoles, isPending: isRolesPending } = data.set.routePermission.roleList
+  const { mutate: getModules, isPending: isModulesPending } = data.set.routePermission.moduleList
 
-  const isPermissionLoading = isRoutesPending || isSummaryPending
+  const isPermissionLoading = isRoutesPending || isSummaryPending || isModulesPending
   const coverage = routeSummary.total ? Math.round((routeSummary.assigned / routeSummary.total) * 100) : 0
 
   const reportError = React.useCallback((message: string) => {
@@ -95,8 +107,42 @@ const SsoDashboard = () => {
         },
         onError: () => reportError('Route coverage could not be loaded.')
       })
+
+      getModules(
+        {
+          start: 0,
+          length: 100,
+          filter_array_objects: JSON.stringify([
+            { filter_column: 'sso_client_identifier', filter_value: client }
+          ])
+        },
+        {
+          onSuccess: response => {
+            const modules = Array.isArray(response?.modules) ? response.modules : []
+
+            setModuleSummary({
+              total: Number(response?.recordsTotal ?? modules.length),
+              protected: modules.filter((module: any) => module?.is_predefined || !module?.can_delete).length,
+              custom: modules.filter((module: any) => !module?.is_predefined && module?.can_delete).length,
+              routes: modules.reduce(
+                (total: number, module: any) => total + Number(module?.routes_permissions_count ?? 0),
+                0
+              ),
+              roles: modules.reduce(
+                (total: number, module: any) => total + Number(module?.role_permission_count ?? 0),
+                0
+              ),
+              users: modules.reduce(
+                (total: number, module: any) => total + Number(module?.user_permission_count ?? 0),
+                0
+              )
+            })
+          },
+          onError: () => reportError('Module inventory could not be loaded.')
+        }
+      )
     },
-    [getRoutePermissions, getUnassignedRoutes, reportError]
+    [getModules, getRoutePermissions, getUnassignedRoutes, reportError]
   )
 
   const fetchWorkspaceOverview = React.useCallback(() => {
@@ -152,6 +198,7 @@ const SsoDashboard = () => {
     setErrors([])
     setRoutes([])
     setRouteSummary(emptyRouteSummary)
+    setModuleSummary(emptyModuleSummary)
     fetchPermissionOverview(selectedClient)
   }, [fetchPermissionOverview, selectedClient])
 
@@ -172,7 +219,7 @@ const SsoDashboard = () => {
             </Typography>
           </div>
           <Typography color='text.secondary'>
-            Monitor administrators, roles, and route-permission coverage from one workspace.
+            Monitor administrators, roles, modules, and route-permission coverage from one workspace.
           </Typography>
         </div>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
@@ -194,7 +241,7 @@ const SsoDashboard = () => {
         </Alert>
       )}
 
-      <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+      <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5'>
         <DashCard
           title='Admin Users'
           value={adminUsers}
@@ -208,6 +255,13 @@ const SsoDashboard = () => {
           icon={<i className='tabler-user-cog' />}
           color='info'
           loading={isRolesPending}
+        />
+        <DashCard
+          title='Modules'
+          value={moduleSummary.total}
+          icon={<i className='tabler-box' />}
+          color='info'
+          loading={isModulesPending}
         />
         <DashCard
           title='Assigned Routes'
@@ -257,7 +311,7 @@ const SsoDashboard = () => {
                   color={coverage >= 80 ? 'success' : coverage >= 50 ? 'warning' : 'error'}
                   sx={{ height: 10, borderRadius: 5, mb: 5 }}
                 />
-                <div className='grid grid-cols-2 gap-4 sm:grid-cols-4'>
+                <div className='grid grid-cols-1 gap-4 min-[400px]:grid-cols-2 sm:grid-cols-4'>
                   {[
                     ['Total routes', routeSummary.total, 'tabler-route'],
                     ['Assigned', routeSummary.assigned, 'tabler-shield-check'],
@@ -278,29 +332,32 @@ const SsoDashboard = () => {
 
         <Card className='rounded-xl border border-solid border-divider shadow-sm'>
           <CardContent className='!p-6'>
-            <Typography variant='h5' className='font-semibold'>Permission Inventory</Typography>
+            <Typography variant='h5' className='font-semibold'>Access Inventory</Typography>
             <Typography variant='body2' color='text.secondary' className='mb-5'>
-              Access assigned across all loaded roles
+              Module usage for the selected client and role membership totals
             </Typography>
             <div className='space-y-1'>
               {[
-                ['Module assignments', roleSummary.modules, 'tabler-box', 'primary'],
-                ['Granted rights', roleSummary.rights, 'tabler-key', 'info'],
-                ['Role memberships', roleSummary.users, 'tabler-users', 'success']
-              ].map(([label, value, icon, color], index) => (
-                <React.Fragment key={String(label)}>
+                { label: 'Protected modules', value: moduleSummary.protected, icon: 'tabler-lock', color: 'secondary', loading: isModulesPending },
+                { label: 'Custom modules', value: moduleSummary.custom, icon: 'tabler-box', color: 'primary', loading: isModulesPending },
+                { label: 'Route permission links', value: moduleSummary.routes, icon: 'tabler-route', color: 'info', loading: isModulesPending },
+                { label: 'Role permission links', value: moduleSummary.roles, icon: 'tabler-key', color: 'warning', loading: isModulesPending },
+                { label: 'Direct user grants', value: moduleSummary.users, icon: 'tabler-user-check', color: 'success', loading: isModulesPending },
+                { label: 'Role memberships', value: roleSummary.users, icon: 'tabler-users', color: 'success', loading: isRolesPending }
+              ].map((item, index) => (
+                <React.Fragment key={item.label}>
                   {index > 0 && <Divider />}
                   <div className='flex items-center justify-between py-4'>
                     <div className='flex items-center gap-3'>
                       <Box
                         className='flex size-10 items-center justify-center rounded-lg'
-                        sx={{ color: `${color}.main`, bgcolor: `${color}.lightOpacity` }}
+                        sx={{ color: `${item.color}.main`, bgcolor: `${item.color}.lightOpacity` }}
                       >
-                        <i className={`${icon} text-xl`} />
+                        <i className={`${item.icon} text-xl`} />
                       </Box>
-                      <Typography>{label}</Typography>
+                      <Typography>{item.label}</Typography>
                     </div>
-                    {isRolesPending ? <Skeleton width={35} /> : <Typography className='font-bold'>{value}</Typography>}
+                    {item.loading ? <Skeleton width={35} /> : <Typography className='font-bold'>{item.value}</Typography>}
                   </div>
                 </React.Fragment>
               ))}
@@ -335,7 +392,7 @@ const SsoDashboard = () => {
                         {route.permissions?.length ?? 0} permission{route.permissions?.length === 1 ? '' : 's'} assigned
                       </Typography>
                     </div>
-                    <div className='flex shrink-0 gap-2'>
+                    <div className='flex shrink-0 flex-wrap gap-2'>
                       {(route.methods ?? []).map(method => <Chip key={method} size='small' variant='tonal' color='primary' label={method} />)}
                       <Chip size='small' variant='tonal' color={route.enableRoutePermission === 1 ? 'success' : 'error'} label={route.enableRoutePermission === 1 ? 'Enabled' : 'Disabled'} />
                     </div>
@@ -360,7 +417,8 @@ const SsoDashboard = () => {
                 ['Admin users', 'admin-user-list', 'tabler-users-group'],
                 ['Route permissions', 'route-permission-list', 'tabler-route-square'],
                 ['Unassigned routes', 'unassigned-route-permission', 'tabler-route-off'],
-                ['Roles', 'role-list', 'tabler-user-cog']
+                ['Roles', 'role-list', 'tabler-user-cog'],
+                ['Modules', 'module-list', 'tabler-box']
               ].map(([label, path, icon]) => (
                 <Button
                   key={path}

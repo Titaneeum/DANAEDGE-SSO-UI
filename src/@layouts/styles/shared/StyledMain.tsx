@@ -13,6 +13,16 @@ type StyledMainProps = {
 
 const StyledMain = styled.main<StyledMainProps>`
   padding: ${themeConfig.layoutPadding}px;
+  min-inline-size: 0;
+
+  @media (max-width: 1199px) {
+    padding: 16px;
+  }
+
+  @media (max-width: 599px) {
+    padding: 12px;
+  }
+
   ${({ isContentCompact }) =>
     isContentCompact &&
     `

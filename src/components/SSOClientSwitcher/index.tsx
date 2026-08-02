@@ -26,7 +26,9 @@ const SSOClientSwitcher = ({ value, onChange, disabled = false }: SSOClientSwitc
         if (nextValue) onChange(nextValue)
       }}
       sx={{
+        width: { xs: '100%', sm: 'auto' },
         '& .MuiToggleButton-root': {
+          flex: { xs: 1, sm: 'initial' },
           px: 2,
           py: 1,
           textTransform: 'none'

@@ -50,7 +50,9 @@ const JSONDialog = ({
       onClose={handleClose}
       PaperProps={{
         sx: {
-          maxHeight: '90vh'
+          maxHeight: '90dvh',
+          m: { xs: 1.5, sm: 4 },
+          width: { xs: 'calc(100% - 24px)', sm: 'auto' }
         }
       }}
     >
@@ -58,8 +60,8 @@ const JSONDialog = ({
 
       <DialogContent
         sx={{
-          px: 3,
-          pb: 3,
+          px: { xs: 1.5, sm: 3 },
+          pb: { xs: 1.5, sm: 3 },
           overflow: 'hidden'
         }}
       >
@@ -182,7 +184,7 @@ export const JsonCodeBlock = ({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: '54px 1fr',
+          gridTemplateColumns: { xs: '38px minmax(520px, 1fr)', sm: '54px minmax(520px, 1fr)' },
           maxHeight,
           overflow: 'auto'
         }}

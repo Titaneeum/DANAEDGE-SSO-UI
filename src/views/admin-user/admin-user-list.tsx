@@ -28,6 +28,7 @@ import CustomTable from '@/components/CustomTable'
 import { useData } from '../../../useData'
 import CreateAdminDialog from './dialog/create-admin-dialog'
 import JSONDialog from '@/components/JsonDialog'
+import AssignRoleDialog from './dialog/assign-role-dialog'
 
 type AdminUserRow = {
   sequence_no: number
@@ -58,6 +59,7 @@ const AdminUserListPage = () => {
   const [jsonStringView, setJsonStringView] = React.useState('')
   const [actionAnchor, setActionAnchor] = React.useState<HTMLElement | null>(null)
   const [selectedAdmin, setSelectedAdmin] = React.useState<AdminUserRow | null>(null)
+  const [openAssignRole, setOpenAssignRole] = React.useState(false)
 
   const [pagination, setPagination] = React.useState({
     total: 0,
@@ -329,6 +331,13 @@ const AdminUserListPage = () => {
     setActionAnchor(null)
   }
 
+  const handleOpenAssignRole = () => {
+    if (!selectedAdmin) return
+
+    setOpenAssignRole(true)
+    setActionAnchor(null)
+  }
+
   React.useEffect(() => {
     handleSubmit({
       ...form.values
@@ -352,7 +361,7 @@ const AdminUserListPage = () => {
           activeTags={activeTags}
           onClear={handleClearAllFilters}
         >
-          <div className='grid grid-cols-2 gap-4'>
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
             <CustomTextField
               {...form.getInputProps('filter_array_objects.0.filter_value')}
               label='Source Reference ID'
@@ -434,6 +443,13 @@ const AdminUserListPage = () => {
           <ListItemText primary='View JSON' secondary='Inspect the complete user record' />
           <i className='tabler-chevron-right text-lg text-textSecondary' />
         </MenuItem>
+        <MenuItem onClick={handleOpenAssignRole} className='gap-3 py-3'>
+          <ListItemIcon>
+            <i className='tabler-user-check text-xl' />
+          </ListItemIcon>
+          <ListItemText primary='Assign role' secondary='Grant permissions to this user' />
+          <i className='tabler-chevron-right text-lg text-textSecondary' />
+        </MenuItem>
       </Menu>
 
       <CreateAdminDialog
@@ -442,6 +458,12 @@ const AdminUserListPage = () => {
         onCreated={refetchCurrentPage}
       />
       <JSONDialog open={jsonDialog} handleClose={() => setJsonDialog(false)} jsonString={jsonStringView} />
+      <AssignRoleDialog
+        open={openAssignRole}
+        onClose={() => setOpenAssignRole(false)}
+        onSuccess={refetchCurrentPage}
+        data={selectedAdmin}
+      />
     </div>
   )
 }
